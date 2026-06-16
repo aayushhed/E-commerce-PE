@@ -1,288 +1,466 @@
 const PDFDocument = require("pdfkit");
+const path = require("path");
 
 const generateOrderPDF = (order, res) => {
-  // Use bufferPages: true to allow page range calculation for footers like "Page X of Y"
   const doc = new PDFDocument({
     size: "A4",
-    margin: 50,
+    margin: 40,
     bufferPages: true,
   });
 
-  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Type",
+    "application/pdf"
+  );
+
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename=order-${order._id}.pdf`
+    `attachment; filename=invoice-${order._id}.pdf`
   );
 
   doc.pipe(res);
 
-  const today = new Date().toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric"
-  });
+  const logoPath = path.join(
+    __dirname,
+    "../assets/coca-cola-logo.png"
+  );
 
-  // ==========================================
+  const today = new Date().toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  );
+
+  const invoiceNo =
+    "PE-" +
+    order._id
+      .toString()
+      .slice(-6)
+      .toUpperCase();
+
+  // ====================================
+  // LOGO
+  // ====================================
+
+  try {
+    doc.image(
+      logoPath,
+      40,
+      30,
+      {
+        width: 85,
+      }
+    );
+  } catch (error) {
+    console.log(
+      "Logo not found"
+    );
+  }
+
+  // ====================================
   // COMPANY HEADER
-  // ==========================================
+  // ====================================
+
   doc
-    .fillColor("#1e3a8a") // Deep Navy Primary Color
-    .fontSize(22)
+    .fillColor("#b91c1c")
+    .fontSize(24)
     .font("Helvetica-Bold")
-    .text("PRAKASH ENTERPRISES", 50, 50);
+    .text(
+      "PRAKASH ENTERPRISES",
+      140,
+      35
+    );
 
   doc
-    .fillColor("#4b5563") // Secondary Dark Gray
-    .fontSize(9)
+    .fillColor("#374151")
+    .fontSize(10)
     .font("Helvetica")
-    .text("Prop. Brajesh Prasad", 50, 75)
-    .text("Authorized Coca-Cola Distributor", 50, 89);
+    .text(
+      "Prop. Brajesh Prasad",
+      140,
+      65
+    );
 
-  // Document Type Header
+  doc.text(
+    "Authorized Coca-Cola Distributor",
+    140,
+    80
+  );
+
+  doc.text(
+    "Kohara Bazar, Bareza Road, Saran",
+    140,
+    95
+  );
+
+  doc.text(
+    "Phone: +91 9631032305",
+    140,
+    110
+  );
+
   doc
-    .fillColor("#6b7280")
-    .fontSize(14)
+    .fontSize(16)
     .font("Helvetica-Bold")
-    .text("PURCHASE ORDER", 50, 50, { align: "right" });
+    .fillColor("#111827")
+    .text(
+      "PURCHASE ORDER",
+      400,
+      40
+    );
 
   doc
-    .fillColor("#4b5563")
-    .fontSize(9)
+    .fontSize(10)
     .font("Helvetica")
-    .text(`Date: ${today}`, 50, 75, { align: "right" });
+    .fillColor("#374151")
+    .text(
+      `Invoice No: ${invoiceNo}`,
+      380,
+      70
+    );
 
-  // Elegant Divider Line
-  doc
-    .moveTo(50, 110)
-    .lineTo(545, 110)
-    .strokeColor("#e5e7eb")
-    .lineWidth(1)
+  doc.text(
+    `Date: ${today}`,
+    380,
+    85
+  );
+
+  doc.moveTo(40, 145)
+    .lineTo(555, 145)
+    .strokeColor("#d1d5db")
     .stroke();
 
-  // ==========================================
-  // BILL TO & ORDER INFO (Two Columns)
-  // ==========================================
-  const infoY = 125;
-  
-  // Left Column: Bill To
-  doc
-    .fillColor("#1e3a8a")
-    .fontSize(9)
-    .font("Helvetica-Bold")
-    .text("BILL TO", 50, infoY);
+  // ====================================
+  // CUSTOMER BOX
+  // ====================================
+
+  doc.rect(
+    40,
+    160,
+    250,
+    90
+  ).stroke();
 
   doc
-    .fillColor("#111827")
-    .fontSize(12)
+    .fontSize(11)
     .font("Helvetica-Bold")
-    .text(order.customerName || "Customer", 50, infoY + 15);
+    .fillColor("#1f2937")
+    .text(
+      "CUSTOMER DETAILS",
+      50,
+      170
+    );
 
   doc
-    .fillColor("#4b5563")
-    .fontSize(9.5)
+    .fontSize(10)
     .font("Helvetica")
-    .text(`Phone: ${order.customerPhone || "-"}`, 50, infoY + 32);
+    .text(
+      `Name: ${order.customerName ||
+      "Customer"
+      }`,
+      50,
+      195
+    );
 
-  // Right Column: Order Info
+  doc.text(
+    `Phone: ${order.customerPhone ||
+    "-"
+    }`,
+    50,
+    215
+  );
+
+  // ====================================
+  // ORDER BOX
+  // ====================================
+
+  doc.rect(
+    305,
+    160,
+    250,
+    90
+  ).stroke();
+
   doc
-    .fillColor("#1e3a8a")
-    .fontSize(9)
+    .fontSize(11)
     .font("Helvetica-Bold")
-    .text("ORDER INFO", 350, infoY);
+    .text(
+      "ORDER DETAILS",
+      315,
+      170
+    );
 
   doc
-    .fillColor("#111827")
-    .fontSize(9.5)
+    .fontSize(10)
     .font("Helvetica")
-    .text("Order ID: ", 350, infoY + 15, { continued: true })
-    .font("Helvetica-Bold")
-    .text(order._id.toString().slice(-8).toUpperCase());
+    .text(
+      `Invoice: ${invoiceNo}`,
+      315,
+      195
+    );
 
-  // Status mapping to colors
-  let statusColor = "#f59e0b"; // Pending/Default
-  if (order.status === "Delivered") statusColor = "#10b981";
-  else if (order.status === "Confirmed") statusColor = "#2563eb";
-  else if (order.status === "Cancelled") statusColor = "#ef4444";
+  doc.text(
+    `Date: ${today}`,
+    315,
+    215
+  );
+
+  doc.text(
+    `Status: ${order.status
+    }`,
+    315,
+    235
+  );
+
+  // ====================================
+  // TABLE HEADER
+  // ====================================
+
+  let tableTop = 280;
 
   doc
-    .font("Helvetica")
-    .text("Status: ", 350, infoY + 30, { continued: true })
-    .font("Helvetica-Bold")
-    .fillColor(statusColor)
-    .text(order.status);
-
-  // Elegant Divider Line
-  doc
-    .moveTo(50, 185)
-    .lineTo(545, 185)
-    .strokeColor("#e5e7eb")
-    .lineWidth(1)
-    .stroke();
-
-  // ==========================================
-  // PRODUCTS TABLE
-  // ==========================================
-  const tableTop = 200;
-
-  // Draw Header Background
-  doc
-    .fillColor("#f9fafb")
-    .rect(50, tableTop, 495, 26)
+    .fillColor("#f3f4f6")
+    .rect(
+      40,
+      tableTop,
+      515,
+      30
+    )
     .fill();
 
-  // Draw Table Headers
-  doc.fillColor("#4b5563").fontSize(9.5).font("Helvetica-Bold");
-  doc.text("Product Description", 60, tableTop + 8);
-  doc.text("Qty", 320, tableTop + 8, { width: 50, align: "right" });
-  doc.text("Rate", 390, tableTop + 8, { width: 75, align: "right" });
-  doc.text("Amount", 475, tableTop + 8, { width: 65, align: "right" });
-
-  // Table Line
   doc
-    .moveTo(50, tableTop + 26)
-    .lineTo(545, tableTop + 26)
-    .strokeColor("#d1d5db")
-    .lineWidth(1)
-    .stroke();
+    .fillColor("#111827")
+    .fontSize(10)
+    .font("Helvetica-Bold");
 
-  let y = tableTop + 26;
+  doc.text(
+    "Product",
+    55,
+    tableTop + 10
+  );
 
-  // Helper function to draw table header on a new page
-  const drawTableHeader = (d, newY) => {
-    d.fillColor("#f9fafb")
-      .rect(50, newY, 495, 26)
-      .fill();
+  doc.text(
+    "Qty",
+    300,
+    tableTop + 10
+  );
 
-    d.fillColor("#4b5563").fontSize(9.5).font("Helvetica-Bold");
-    d.text("Product Description", 60, newY + 8);
-    d.text("Qty", 320, newY + 8, { width: 50, align: "right" });
-    d.text("Rate", 390, newY + 8, { width: 75, align: "right" });
-    d.text("Amount", 475, newY + 8, { width: 65, align: "right" });
+  doc.text(
+    "Rate",
+    380,
+    tableTop + 10
+  );
 
-    d.moveTo(50, newY + 26)
-      .lineTo(545, newY + 26)
-      .strokeColor("#d1d5db")
-      .lineWidth(1)
-      .stroke();
-  };
+  doc.text(
+    "Amount",
+    470,
+    tableTop + 10
+  );
 
-  order.items.forEach((item) => {
-    // Check for page overflow
-    if (y > 670) {
-      doc.addPage();
-      y = 50;
-      drawTableHeader(doc, y);
-      y += 26;
+  let y = tableTop + 35;
+
+  order.items.forEach(
+    (item) => {
+      doc
+        .moveTo(
+          40,
+          y + 18
+        )
+        .lineTo(
+          555,
+          y + 18
+        )
+        .strokeColor(
+          "#f3f4f6"
+        )
+        .stroke();
+
+      doc
+        .fontSize(10)
+        .font(
+          "Helvetica"
+        )
+        .fillColor(
+          "#374151"
+        );
+
+      doc.text(
+        item.productName,
+        55,
+        y
+      );
+
+      doc.text(
+        item.quantity.toString(),
+        300,
+        y
+      );
+
+      doc.text(
+        `₹${item.price}`,
+        380,
+        y
+      );
+
+      doc.text(
+        `₹${item.subtotal}`,
+        470,
+        y
+      );
+
+      y += 30;
     }
 
-    y += 8; // padding
+  );
 
-    doc.fillColor("#1f2937").fontSize(9.5).font("Helvetica");
-    doc.text(item.productName, 60, y, { width: 250, lineBreak: false });
-    doc.text(String(item.quantity), 320, y, { width: 50, align: "right" });
-    doc.text(`₹${Number(item.price || 0).toFixed(2)}`, 390, y, { width: 75, align: "right" });
-    doc.text(`₹${Number(item.subtotal || 0).toFixed(2)}`, 475, y, { width: 65, align: "right" });
-
-    y += 18; // advance and padding
-
-    // Light row separator
-    doc
-      .moveTo(50, y)
-      .lineTo(545, y)
-      .strokeColor("#f3f4f6")
-      .lineWidth(0.5)
-      .stroke();
-  });
-
-  // ==========================================
+  // ====================================
   // TOTAL BOX
-  // ==========================================
-  y += 15;
+  // ====================================
 
-  // Check for overflow before printing Total & Signature
-  if (y > 640) {
-    doc.addPage();
-    y = 50;
-  }
+  y += 25;
 
-  // Draw Grand Total Box
   doc
-    .fillColor("#f9fafb")
-    .rect(315, y, 230, 38)
+    .fillColor("#dcfce7")
+    .rect(
+      340,
+      y,
+      215,
+      45
+    )
     .fill();
 
   doc
-    .rect(315, y, 230, 38)
-    .strokeColor("#e5e7eb")
-    .lineWidth(1)
+    .fontSize(12)
+    .font("Helvetica-Bold")
+    .fillColor("#166534")
+    .text(
+      "GRAND TOTAL",
+      355,
+      y + 15
+    );
+
+  doc.text(
+    `₹${Number(
+      order.totalAmount
+    ).toLocaleString(
+      "en-IN"
+    )}`,
+    455,
+    y + 15
+  );
+
+  // ====================================
+  // SIGNATURE
+  // ====================================
+
+  y += 100;
+
+  doc
+    .moveTo(
+      380,
+      y
+    )
+    .lineTo(
+      530,
+      y
+    )
+    .strokeColor(
+      "#6b7280"
+    )
     .stroke();
 
   doc
-    .fillColor("#1e3a8a")
-    .fontSize(10)
-    .font("Helvetica-Bold")
-    .text("GRAND TOTAL", 330, y + 14);
+    .fontSize(9)
+    .fillColor(
+      "#374151"
+    )
+    .text(
+      "Authorized Signature",
+      385,
+      y + 10
+    );
 
-  const formattedTotal = Number(order.totalAmount || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  doc.text(
+    "Prakash Enterprises",
+    385,
+    y + 25
+  );
 
-  doc
-    .fillColor("#1e3a8a")
-    .fontSize(13)
-    .font("Helvetica-Bold")
-    .text(`₹${formattedTotal}`, 430, y + 12, { width: 105, align: "right" });
+  // ====================================
+  // FOOTER
+  // ====================================
 
-  // ==========================================
-  // SIGNATURE SECTION
-  // ==========================================
-  y = Math.max(y + 80, 680);
-  if (y > 720) {
-    doc.addPage();
-    y = 650;
-  }
+  const range =
+    doc.bufferedPageRange();
 
-  doc
-    .moveTo(370, y)
-    .lineTo(530, y)
-    .strokeColor("#9ca3af")
-    .lineWidth(0.75)
-    .stroke();
-
-  doc
-    .fillColor("#4b5563")
-    .fontSize(8.5)
-    .font("Helvetica")
-    .text("Authorized Signature", 370, y + 6, { width: 160, align: "center" })
-    .fillColor("#111827")
-    .font("Helvetica-Bold")
-    .text("Prakash Enterprises", 370, y + 18, { width: 160, align: "center" });
-
-  // ==========================================
-  // FOOTER (Multi-page safe)
-  // ==========================================
-  const range = doc.bufferedPageRange();
-  for (let i = range.start; i < range.start + range.count; i++) {
+  for (
+    let i =
+      range.start;
+    i <
+    range.start +
+    range.count;
+    i++
+  ) {
     doc.switchToPage(i);
-    
-    // Bottom rule
+
     doc
-      .moveTo(50, 785)
-      .lineTo(545, 785)
-      .strokeColor("#e5e7eb")
-      .lineWidth(0.5)
+      .moveTo(
+        40,
+        785
+      )
+      .lineTo(
+        555,
+        785
+      )
+      .strokeColor(
+        "#d1d5db"
+      )
       .stroke();
 
     doc
-      .fillColor("#9ca3af")
       .fontSize(8)
-      .font("Helvetica")
-      .text("PRAKASH ENTERPRISES • AUTHORIZED COCA-COLA DISTRIBUTOR", 50, 795, { align: "center" })
-      .text(`Page ${i + 1} of ${range.count}`, 50, 808, { align: "center" });
+      .fillColor(
+        "#6b7280"
+      )
+      .text(
+        "PRAKASH ENTERPRISES | AUTHORIZED COCA-COLA DISTRIBUTOR",
+        40,
+        795,
+        {
+          align:
+            "center",
+        }
+      );
+
+    doc.text(
+      "GSTIN : 10BNIPP2535B1ZL",
+      40,
+      808,
+      {
+        align:
+          "center",
+      }
+    );
+
+    doc.text(
+      `Page ${i + 1
+      } of ${range.count
+      }`,
+      40,
+      821,
+      {
+        align:
+          "center",
+      }
+    );
+
   }
 
   doc.end();
 };
 
-module.exports = generateOrderPDF;
+module.exports =
+  generateOrderPDF;
