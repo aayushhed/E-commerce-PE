@@ -45,93 +45,83 @@ const generateOrderPDF = (order, res) => {
   // LOGO
   // ====================================
 
-  try {
-    doc.image(
-      logoPath,
-      40,
-      30,
-      {
-        width: 85,
-      }
-    );
-  } catch (error) {
-    console.log(
-      "Logo not found"
-    );
-  }
+try {
+  doc.image(logoPath, 40, 25, {
+    width: 120,
+  });
+} catch (err) {
+  console.log("Logo not found");
+}
 
-  // ====================================
-  // COMPANY HEADER
-  // ====================================
+doc
+  .fillColor("#b91c1c")
+  .fontSize(24)
+  .font("Helvetica-Bold")
+  .text(
+    "PRAKASH ENTERPRISES",
+    170,
+    35
+  );
 
-  doc
-    .fillColor("#b91c1c")
-    .fontSize(24)
-    .font("Helvetica-Bold")
-    .text(
-      "PRAKASH ENTERPRISES",
-      140,
-      35
-    );
+doc
+  .fillColor("#374151")
+  .fontSize(11)
+  .font("Helvetica")
+  .text(
+    "Prop. Brajesh Prasad",
+    170,
+    68
+  );
 
-  doc
-    .fillColor("#374151")
-    .fontSize(10)
-    .font("Helvetica")
-    .text(
-      "Prop. Brajesh Prasad",
-      140,
-      65
-    );
+doc.text(
+  "Authorized Coca-Cola Distributor",
+  170,
+  85
+);
 
-  doc.text(
-    "Authorized Coca-Cola Distributor",
-    140,
+doc.text(
+  "Kohara Bazar, Bareza Road, Saran",
+  170,
+  102
+);
+
+doc.text(
+  "Phone: +91 9631032305",
+  170,
+  119
+);
+
+doc
+  .fillColor("#111827")
+  .fontSize(20)
+  .font("Helvetica-Bold")
+  .text(
+    "PURCHASE ORDER",
+    360,
+    45
+  );
+
+doc
+  .fontSize(11)
+  .font("Helvetica")
+  .fillColor("#374151")
+  .text(
+    `Invoice No: ${invoiceNo}`,
+    360,
     80
   );
 
-  doc.text(
-    "Kohara Bazar, Bareza Road, Saran",
-    140,
-    95
-  );
+doc.text(
+  `Date: ${today}`,
+  360,
+  100
+);
 
-  doc.text(
-    "Phone: +91 9631032305",
-    140,
-    110
-  );
+doc.moveTo(40, 155)
+  .lineTo(555, 155)
+  .strokeColor("#d1d5db")
+  .stroke();
 
-  doc
-    .fontSize(16)
-    .font("Helvetica-Bold")
-    .fillColor("#111827")
-    .text(
-      "PURCHASE ORDER",
-      400,
-      40
-    );
-
-  doc
-    .fontSize(10)
-    .font("Helvetica")
-    .fillColor("#374151")
-    .text(
-      `Invoice No: ${invoiceNo}`,
-      380,
-      70
-    );
-
-  doc.text(
-    `Date: ${today}`,
-    380,
-    85
-  );
-
-  doc.moveTo(40, 145)
-    .lineTo(555, 145)
-    .strokeColor("#d1d5db")
-    .stroke();
 
   // ====================================
   // CUSTOMER BOX
@@ -139,7 +129,7 @@ const generateOrderPDF = (order, res) => {
 
   doc.rect(
     40,
-    160,
+    175,
     250,
     90
   ).stroke();
@@ -179,7 +169,7 @@ const generateOrderPDF = (order, res) => {
 
   doc.rect(
     305,
-    160,
+    175,
     250,
     90
   ).stroke();
@@ -219,102 +209,102 @@ const generateOrderPDF = (order, res) => {
   // TABLE HEADER
   // ====================================
 
-  let tableTop = 280;
+  let tableTop = 300;
 
   doc
     .fillColor("#f3f4f6")
-    .rect(
-      40,
-      tableTop,
-      515,
-      30
-    )
+    .rect(40, tableTop, 515, 35)
     .fill();
 
   doc
     .fillColor("#111827")
-    .fontSize(10)
+    .fontSize(11)
     .font("Helvetica-Bold");
 
-  doc.text(
-    "Product",
-    55,
-    tableTop + 10
-  );
+  doc.text("Product", 60, tableTop + 12);
 
   doc.text(
     "Qty",
-    300,
-    tableTop + 10
+    270,
+    tableTop + 12,
+    {
+      width: 60,
+      align: "center",
+    }
   );
 
   doc.text(
     "Rate",
-    380,
-    tableTop + 10
+    350,
+    tableTop + 12,
+    {
+      width: 80,
+      align: "right",
+    }
   );
 
   doc.text(
     "Amount",
-    470,
-    tableTop + 10
-  );
-
-  let y = tableTop + 35;
-
-  order.items.forEach(
-    (item) => {
-      doc
-        .moveTo(
-          40,
-          y + 18
-        )
-        .lineTo(
-          555,
-          y + 18
-        )
-        .strokeColor(
-          "#f3f4f6"
-        )
-        .stroke();
-
-      doc
-        .fontSize(10)
-        .font(
-          "Helvetica"
-        )
-        .fillColor(
-          "#374151"
-        );
-
-      doc.text(
-        item.productName,
-        55,
-        y
-      );
-
-      doc.text(
-        item.quantity.toString(),
-        300,
-        y
-      );
-
-      doc.text(
-        `₹${item.price}`,
-        380,
-        y
-      );
-
-      doc.text(
-        `₹${item.subtotal}`,
-        470,
-        y
-      );
-
-      y += 30;
+    450,
+    tableTop + 12,
+    {
+      width: 90,
+      align: "right",
     }
-
   );
+
+  let y = tableTop + 45;
+
+  order.items.forEach((item) => {
+    doc
+      .moveTo(40, y + 20)
+      .lineTo(555, y + 20)
+      .strokeColor("#f3f4f6")
+      .stroke();
+
+    doc
+      .fontSize(10)
+      .font("Helvetica")
+      .fillColor("#374151");
+
+    doc.text(
+      item.productName,
+      60,
+      y
+    );
+
+    doc.text(
+      item.quantity.toString(),
+      270,
+      y,
+      {
+        width: 60,
+        align: "center",
+      }
+    );
+
+    doc.text(
+      `₹${Number(item.price).toLocaleString("en-IN")}`,
+      350,
+      y,
+      {
+        width: 80,
+        align: "right",
+      }
+    );
+
+    doc.text(
+      `₹${Number(item.subtotal).toLocaleString("en-IN")}`,
+      450,
+      y,
+      {
+        width: 90,
+        align: "right",
+      }
+    );
+
+    y += 30;
+  });
 
   // ====================================
   // TOTAL BOX
@@ -323,60 +313,50 @@ const generateOrderPDF = (order, res) => {
   y += 25;
 
   doc
-    .fillColor("#dcfce7")
+    .fillColor("#b91c1c")
     .rect(
-      340,
+      330,
       y,
-      215,
-      45
+      225,
+      50
     )
     .fill();
 
   doc
-    .fontSize(12)
+    .fillColor("#ffffff")
+    .fontSize(13)
     .font("Helvetica-Bold")
-    .fillColor("#166534")
     .text(
       "GRAND TOTAL",
-      355,
-      y + 15
+      345,
+      y + 18
     );
 
   doc.text(
-    `₹${Number(
-      order.totalAmount
-    ).toLocaleString(
-      "en-IN"
-    )}`,
-    455,
-    y + 15
+    `₹${Number(order.totalAmount).toLocaleString("en-IN")}`,
+    450,
+    y + 18,
+    {
+      width: 90,
+      align: "right",
+    }
   );
 
   // ====================================
   // SIGNATURE
   // ====================================
 
-  y += 100;
+  y += 75;
 
   doc
-    .moveTo(
-      380,
-      y
-    )
-    .lineTo(
-      530,
-      y
-    )
-    .strokeColor(
-      "#6b7280"
-    )
+    .moveTo(380, y)
+    .lineTo(530, y)
+    .strokeColor("#6b7280")
     .stroke();
 
   doc
     .fontSize(9)
-    .fillColor(
-      "#374151"
-    )
+    .fillColor("#374151")
     .text(
       "Authorized Signature",
       385,
@@ -422,38 +402,22 @@ const generateOrderPDF = (order, res) => {
 
     doc
       .fontSize(8)
-      .fillColor(
-        "#6b7280"
-      )
+      .fillColor("#6b7280")
       .text(
-        "PRAKASH ENTERPRISES | AUTHORIZED COCA-COLA DISTRIBUTOR",
+        "GSTIN : 10BNIPP2535B1ZL | PRAKASH ENTERPRISES | AUTHORIZED COCA-COLA DISTRIBUTOR",
         40,
-        795,
+        800,
         {
-          align:
-            "center",
+          align: "center",
         }
       );
 
     doc.text(
-      "GSTIN : 10BNIPP2535B1ZL",
+      `Page ${i + 1} of ${range.count}`,
       40,
-      808,
+      815,
       {
-        align:
-          "center",
-      }
-    );
-
-    doc.text(
-      `Page ${i + 1
-      } of ${range.count
-      }`,
-      40,
-      821,
-      {
-        align:
-          "center",
+        align: "center",
       }
     );
 
