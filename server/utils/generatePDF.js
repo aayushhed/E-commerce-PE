@@ -1,4 +1,5 @@
 const PDFDocument = require("pdfkit");
+const fs = require("fs");
 const path = require("path");
 
 // ----------------------------------------------------------------
@@ -36,12 +37,18 @@ const COLUMNS = {
   amount: { x: 450, width: 90, align: "right" },
 };
 
-const ROW_HEIGHT = 30;
+const ROW_HEIGHT = 32;
+const TABLE_HEADER_HEIGHT = 32;
 
 /**
- * Formats a number as an Indian Rupee amount, e.g. 12345 -> "₹12,345"
+ * Formats a number as a Rupee amount, e.g. 12345 -> "Rs. 12,345"
+ *
+ * Note: PDFKit's built-in Helvetica font does not include the ₹ glyph,
+ * which is why it was rendering as a broken character (¹) in the PDF.
+ * "Rs." is used instead so it renders correctly everywhere without
+ * needing to embed a custom font.
  */
-const formatINR = (value) => `\u20B9${Number(value || 0).toLocaleString("en-IN")}`;
+const formatINR = (value) => `Rs. ${Number(value || 0).toLocaleString("en-IN")}`;
 
 /**
  * Builds a short, human-readable invoice number from the Mongo ObjectId.
@@ -52,41 +59,60 @@ const buildInvoiceNumber = (orderId) =>
 /**
  * Draws the company logo, name, and contact block, plus the
  * invoice number / date on the right-hand side.
+ *
+ * If the logo file isn't found, the text block shifts left to fill the
+ * gap instead of leaving a blank space where the logo would have been.
  */
 function drawHeader(doc, { invoiceNo, date }) {
   const logoPath = path.join(__dirname, "../assets/coca-cola-logo.png");
+  const logoWidth = 110;
+  const logoExists = fs.existsSync(logoPath);
 
-  try {
-    doc.image(logoPath, CONTENT_LEFT, 25, { width: 120 });
-  } catch (err) {
-    console.warn("generateOrderPDF: logo not found, skipping image.", err.message);
+  if (logoExists) {
+    try {
+      doc.image(logoPath, CONTENT_LEFT, 30, { width: logoWidth });
+    } catch (err) {
+      console.warn("generateOrderPDF: failed to draw logo.", err.message);
+    }
+  } else {
+    console.warn("generateOrderPDF: logo not found at", logoPath, "- shifting header left.");
   }
+
+  // When the logo is present, push the text block to its right.
+  // When it's missing, start the text block at the page margin instead
+  // of leaving an empty gap on the left.
+  const textX = logoExists ? CONTENT_LEFT + logoWidth + 20 : CONTENT_LEFT;
 
   doc
     .fillColor(COLORS.brand)
     .font(FONT.bold)
-    .fontSize(24)
-    .text("PRAKASH ENTERPRISES", 170, 35);
+    .fontSize(22)
+    .text("PRAKASH ENTERPRISES", textX, 32);
 
   doc
     .fillColor(COLORS.text)
     .font(FONT.body)
-    .fontSize(11)
-    .text("Prop. Brajesh Prasad", 170, 68)
-    .text("Authorized Coca-Cola Distributor", 170, 85)
-    .text("Kohara Bazar, Bareza Road, Saran", 170, 102)
-    .text("Phone: +91 9631032305", 170, 119);
+    .fontSize(10.5)
+    .text("Prop. Brajesh Prasad", textX, 62)
+    .text("Authorized Coca-Cola Distributor", textX, 78)
+    .text("Kohara Bazar, Bareza Road, Saran", textX, 94)
+    .text("Phone: +91 9631032305", textX, 110);
+
+  // Invoice no. / date block, right-aligned within the content width
+  // so it never collides with the company block regardless of its width.
+  const metaWidth = 175;
+  const metaX = CONTENT_RIGHT - metaWidth;
 
   doc
     .font(FONT.body)
-    .fontSize(11)
+    .fontSize(10.5)
     .fillColor(COLORS.text)
-    .text(`Invoice No: ${invoiceNo}`, 360, 80)
-    .text(`Date: ${date}`, 360, 100);
+    .text(`Invoice No: ${invoiceNo}`, metaX, 62, { width: metaWidth, align: "right" })
+    .text(`Date: ${date}`, metaX, 78, { width: metaWidth, align: "right" });
 
   doc
-    .moveTo(CONTENT_LEFT, 155)
-    .lineTo(CONTENT_RIGHT, 155)
+    .moveTo(CONTENT_LEFT, 138)
+    .lineTo(CONTENT_RIGHT, 138)
     .strokeColor(COLORS.border)
     .stroke();
 }
@@ -95,69 +121,86 @@ function drawHeader(doc, { invoiceNo, date }) {
  * Draws the two side-by-side info boxes: customer details and order details.
  */
 function drawInfoBoxes(doc, order, { invoiceNo, date }) {
-  const boxTop = 175;
-  const boxHeight = 90;
+  const boxTop = 158;
+  const boxHeight = 92;
   const boxWidth = 250;
   const gap = CONTENT_WIDTH - boxWidth * 2; // space between the two boxes
+  const labelOffsetY = 14; // distance from box top to its heading
+  const firstLineY = 34; // distance from box top to first line of content
+  const lineSpacing = 19;
 
   const customerBoxX = CONTENT_LEFT;
   const orderBoxX = CONTENT_LEFT + boxWidth + gap;
 
   // Customer details box
-  doc.rect(customerBoxX, boxTop, boxWidth, boxHeight).stroke(COLORS.border);
+  doc.roundedRect(customerBoxX, boxTop, boxWidth, boxHeight, 4).stroke(COLORS.border);
 
   doc
     .font(FONT.bold)
-    .fontSize(11)
+    .fontSize(10.5)
     .fillColor(COLORS.heading)
-    .text("CUSTOMER DETAILS", customerBoxX + 10, boxTop - 5);
+    .text("CUSTOMER DETAILS", customerBoxX + 14, boxTop + labelOffsetY);
 
   doc
     .font(FONT.body)
     .fontSize(10)
     .fillColor(COLORS.text)
-    .text(`Name: ${order.customerName || "Customer"}`, customerBoxX + 10, boxTop + 20)
-    .text(`Phone: ${order.customerPhone || "-"}`, customerBoxX + 10, boxTop + 40);
+    .text(`Name: ${order.customerName || "Customer"}`, customerBoxX + 14, boxTop + firstLineY)
+    .text(`Phone: ${order.customerPhone || "-"}`, customerBoxX + 14, boxTop + firstLineY + lineSpacing);
 
   // Order details box
-  doc.rect(orderBoxX, boxTop, boxWidth, boxHeight).stroke(COLORS.border);
+  doc.roundedRect(orderBoxX, boxTop, boxWidth, boxHeight, 4).stroke(COLORS.border);
 
   doc
     .font(FONT.bold)
-    .fontSize(11)
+    .fontSize(10.5)
     .fillColor(COLORS.heading)
-    .text("ORDER DETAILS", orderBoxX + 10, boxTop - 5);
+    .text("ORDER DETAILS", orderBoxX + 14, boxTop + labelOffsetY);
 
   doc
     .font(FONT.body)
     .fontSize(10)
     .fillColor(COLORS.text)
-    .text(`Invoice: ${invoiceNo}`, orderBoxX + 10, boxTop + 20)
-    .text(`Date: ${date}`, orderBoxX + 10, boxTop + 40)
-    .text(`Status: ${order.status}`, orderBoxX + 10, boxTop + 60);
+    .text(`Invoice: ${invoiceNo}`, orderBoxX + 14, boxTop + firstLineY)
+    .text(`Date: ${date}`, orderBoxX + 14, boxTop + firstLineY + lineSpacing)
+    .text(`Status: ${order.status}`, orderBoxX + 14, boxTop + firstLineY + lineSpacing * 2);
+
+  return boxTop + boxHeight;
 }
 
 /**
  * Draws the table header row (Product / Qty / Rate / Amount).
  */
 function drawTableHeader(doc, tableTop) {
-  doc.fillColor(COLORS.tableHeaderBg).rect(CONTENT_LEFT, tableTop, CONTENT_WIDTH, 35).fill();
+  doc
+    .fillColor(COLORS.tableHeaderBg)
+    .rect(CONTENT_LEFT, tableTop, CONTENT_WIDTH, TABLE_HEADER_HEIGHT)
+    .fill();
 
-  doc.fillColor(COLORS.heading).font(FONT.bold).fontSize(11);
+  const textY = tableTop + TABLE_HEADER_HEIGHT / 2 - 5.5;
 
-  doc.text("Product", COLUMNS.product.x, tableTop + 12, { width: COLUMNS.product.width });
-  doc.text("Qty", COLUMNS.qty.x, tableTop + 12, {
+  doc.fillColor(COLORS.heading).font(FONT.bold).fontSize(10.5);
+
+  doc.text("PRODUCT", COLUMNS.product.x, textY, { width: COLUMNS.product.width });
+  doc.text("QTY", COLUMNS.qty.x, textY, {
     width: COLUMNS.qty.width,
     align: COLUMNS.qty.align,
   });
-  doc.text("Rate", COLUMNS.rate.x, tableTop + 12, {
+  doc.text("RATE", COLUMNS.rate.x, textY, {
     width: COLUMNS.rate.width,
     align: COLUMNS.rate.align,
   });
-  doc.text("Amount", COLUMNS.amount.x, tableTop + 12, {
+  doc.text("AMOUNT", COLUMNS.amount.x, textY, {
     width: COLUMNS.amount.width,
     align: COLUMNS.amount.align,
   });
+
+  // Border directly under the header row to visually close it off
+  doc
+    .moveTo(CONTENT_LEFT, tableTop + TABLE_HEADER_HEIGHT)
+    .lineTo(CONTENT_RIGHT, tableTop + TABLE_HEADER_HEIGHT)
+    .strokeColor(COLORS.border)
+    .stroke();
 }
 
 /**
@@ -166,35 +209,45 @@ function drawTableHeader(doc, tableTop) {
  * caller knows where to continue drawing (e.g. the grand total box).
  */
 function drawLineItems(doc, items, tableTop) {
-  let y = tableTop + 45;
+  const rowsTop = tableTop + TABLE_HEADER_HEIGHT;
 
-  items.forEach((item) => {
-    doc
-      .moveTo(CONTENT_LEFT, y + 20)
-      .lineTo(CONTENT_RIGHT, y + 20)
-      .strokeColor(COLORS.rowDivider)
-      .stroke();
+  items.forEach((item, index) => {
+    const rowY = rowsTop + index * ROW_HEIGHT;
+    const textY = rowY + ROW_HEIGHT / 2 - 5;
+
+    // Zebra striping makes rows easier to scan across, especially on
+    // longer invoices.
+    if (index % 2 === 1) {
+      doc.fillColor(COLORS.rowDivider).rect(CONTENT_LEFT, rowY, CONTENT_WIDTH, ROW_HEIGHT).fill();
+    }
 
     doc.font(FONT.body).fontSize(10).fillColor(COLORS.text);
 
-    doc.text(item.productName, COLUMNS.product.x, y, { width: COLUMNS.product.width });
-    doc.text(String(item.quantity), COLUMNS.qty.x, y, {
+    doc.text(item.productName, COLUMNS.product.x, textY, { width: COLUMNS.product.width });
+    doc.text(String(item.quantity), COLUMNS.qty.x, textY, {
       width: COLUMNS.qty.width,
       align: COLUMNS.qty.align,
     });
-    doc.text(formatINR(item.price), COLUMNS.rate.x, y, {
+    doc.text(formatINR(item.price), COLUMNS.rate.x, textY, {
       width: COLUMNS.rate.width,
       align: COLUMNS.rate.align,
     });
-    doc.text(formatINR(item.subtotal), COLUMNS.amount.x, y, {
+    doc.text(formatINR(item.subtotal), COLUMNS.amount.x, textY, {
       width: COLUMNS.amount.width,
       align: COLUMNS.amount.align,
     });
-
-    y += ROW_HEIGHT;
   });
 
-  return y;
+  const tableBottom = rowsTop + items.length * ROW_HEIGHT;
+
+  // Close the table with a bottom border for a finished, contained look.
+  doc
+    .moveTo(CONTENT_LEFT, tableBottom)
+    .lineTo(CONTENT_RIGHT, tableBottom)
+    .strokeColor(COLORS.border)
+    .stroke();
+
+  return tableBottom;
 }
 
 /**
@@ -296,9 +349,9 @@ const generateOrderPDF = (order, res) => {
   const invoiceNo = buildInvoiceNumber(order._id);
 
   drawHeader(doc, { invoiceNo, date });
-  drawInfoBoxes(doc, order, { invoiceNo, date });
+  const infoBoxBottom = drawInfoBoxes(doc, order, { invoiceNo, date });
 
-  const tableTop = 300;
+  const tableTop = infoBoxBottom + 28;
   drawTableHeader(doc, tableTop);
   const afterItemsY = drawLineItems(doc, order.items, tableTop);
   const afterTotalY = drawGrandTotal(doc, order.totalAmount, afterItemsY);
